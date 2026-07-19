@@ -7,6 +7,7 @@ import { POLL_MS } from '../../lib/query';
 
 const emptyForm = {
   code: '',
+  label: '',
   description: '',
   type: 'percent',
   value: '',
@@ -16,7 +17,8 @@ const emptyForm = {
   active: true,
 };
 
-export default function VendorCoupons() {  const queryClient = useQueryClient();
+export default function VendorCoupons() {
+  const queryClient = useQueryClient();
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(emptyForm);
@@ -62,6 +64,7 @@ export default function VendorCoupons() {  const queryClient = useQueryClient()
     setEditingId(c.id);
     setForm({
       code: c.code,
+      label: c.label || '',
       description: c.description || '',
       type: c.type || 'percent',
       value: c.value,
@@ -164,6 +167,15 @@ export default function VendorCoupons() {  const queryClient = useQueryClient()
               />
             </label>
           )}
+          <label className="text-sm font-medium">
+            Label
+            <input
+              value={form.label}
+              onChange={(e) => setForm({ ...form, label: e.target.value })}
+              placeholder="Shown at checkout"
+              className="mt-1.5 w-full rounded-xl border border-ink-200 px-3 py-2 dark:border-ink-700 dark:bg-ink-950"
+            />
+          </label>
           <label className="text-sm font-medium">
             Type
             <select

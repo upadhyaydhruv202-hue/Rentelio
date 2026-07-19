@@ -317,12 +317,19 @@ export const userApi = {
     request(`/wishlist/${productId}`, { method: 'DELETE' }, { auth: true }),
 
   getWallet: () => request('/wallet', {}, { auth: true }),
+  depositWallet: (payload) =>
+    request('/wallet/deposit', { method: 'POST', body: JSON.stringify(payload) }, { auth: true }),
   getNotifications: () => request('/notifications', {}, { auth: true }),
+  getUnreadNotificationCount: () =>
+    request('/notifications/unread-count', {}, { auth: true }),
   markNotificationRead: (id) =>
     request(`/notifications/${id}/read`, { method: 'PUT' }, { auth: true }),
 
-  validateCoupon: (code, amount) =>
-    request('/coupons/validate', { method: 'POST', body: JSON.stringify({ code, amount }) }),
+  validateCoupon: (code, amount, productId) =>
+    request('/coupons/validate', {
+      method: 'POST',
+      body: JSON.stringify({ code, amount, productId }),
+    }),
 
   createReview: (payload) =>
     request('/reviews', { method: 'POST', body: JSON.stringify(payload) }, { auth: true }),
@@ -356,4 +363,14 @@ export function productDeposit(product) {
     return Number(product.securityDeposit);
   }
   return calcSecurityDeposit(product.pricePerDay);
+}
+
+/** Prefer stored hourly rate; fall back to daily / 8 */
+export function productHourlyRate(product) {
+  if (!product) return 0;
+  const stored = Number(product.pricePerHour);
+  if (Number.isFinite(stored) && stored > 0) return stored;
+  const daily = Number(product.pricePerDay);
+  if (!Number.isFinite(daily) || daily <= 0) return 0;
+  return Math.max(1, Math.round((daily / 8) * 100) / 100);
 }

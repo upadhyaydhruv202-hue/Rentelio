@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+﻿import { useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   Bar,
@@ -20,8 +21,17 @@ import { vendorApi } from '../../services/vendorApi';
 import { POLL_MS } from '../../lib/query';
 
 const PIE_COLORS = ['#8f79bc', '#9aabd9', '#d97706', '#7c3aed'];
+const PERIODS = ['daily', 'weekly', 'monthly', 'yearly'];
 
-export default function VendorDashboard() {  const [period, setPeriod] = useState('daily');
+export default function VendorDashboard() {
+  const [params, setParams] = useSearchParams();
+  const period = PERIODS.includes(params.get('period')) ? params.get('period') : 'daily';
+  const setPeriod = (p) => {
+    const next = new URLSearchParams(params);
+    if (p === 'daily') next.delete('period');
+    else next.set('period', p);
+    setParams(next, { replace: true });
+  };
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['vendor', 'dashboard'],
@@ -46,7 +56,7 @@ export default function VendorDashboard() {  const [period, setPeriod] = useSta
     return Math.max(1, ...Object.values(days));
   }, [data]);
 
-  if (isLoading) return <p className="text-ink-500">{'Loading seller dashboard…'}</p>;
+  if (isLoading) return <p className="text-ink-500">{'Loading seller dashboardâ€¦'}</p>;
   if (error) return <p className="text-rose-600">{error.message}</p>;
 
   const { stats, profit, activities = [], heatmap } = data;
@@ -71,12 +81,12 @@ export default function VendorDashboard() {  const [period, setPeriod] = useSta
     <div className="space-y-6">
       <div>
         <h1 className="font-display text-2xl font-semibold">{'Seller Dashboard'}</h1>
-        <p className="text-sm text-ink-500">{'Your storefront KPIs — isolated to your catalog only'}</p>
+        <p className="text-sm text-ink-500">{'Your storefront KPIs â€” isolated to your catalog only'}</p>
       </div>
 
       <AiPulseBar
         title={'Vendor node synchronized'}
-        body={`${stats.activeRentals} active rentals · ${formatINR(stats.totalRevenue)} revenue · ${stats.availableProducts} available SKUs.`}
+        body={`${stats.activeRentals} active rentals Â· ${formatINR(stats.totalRevenue)} revenue Â· ${stats.availableProducts} available SKUs.`}
       />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -98,7 +108,7 @@ export default function VendorDashboard() {  const [period, setPeriod] = useSta
           >
             <p className="text-sm text-ink-500">{p.label}</p>
             <p className="mt-1 font-display text-3xl font-semibold text-brand-700 dark:text-brand-300">
-              ₹<AnimatedCounter value={Math.round(p.value)} />
+              â‚¹<AnimatedCounter value={Math.round(p.value)} />
             </p>
           </div>
         ))}
@@ -173,7 +183,7 @@ export default function VendorDashboard() {  const [period, setPeriod] = useSta
               <li key={a.id} className="border-l-2 border-brand-500 pl-3 text-sm">
                 <p className="font-medium">{a.message}</p>
                 <p className="text-xs text-ink-400">
-                  {a.type} · {formatDate(a.createdAt)}
+                  {a.type} Â· {formatDate(a.createdAt)}
                 </p>
               </li>
             ))}
@@ -203,7 +213,7 @@ export default function VendorDashboard() {  const [period, setPeriod] = useSta
                   <li key={p.name} className="flex justify-between gap-2">
                     <span className="truncate">{p.name}</span>
                     <span className="text-ink-500">
-                      {p.count} · {formatINR(p.revenue)}
+                      {p.count} Â· {formatINR(p.revenue)}
                     </span>
                   </li>
                 ))}
@@ -225,7 +235,7 @@ export default function VendorDashboard() {  const [period, setPeriod] = useSta
                   return (
                     <div
                       key={h.hour}
-                      title={`${h.hour}:00 — ${h.count}`}
+                      title={`${h.hour}:00 â€” ${h.count}`}
                       className="flex-1 rounded-t bg-brand-500/80"
                       style={{ height: `${Math.max(8, (h.count / maxH) * 100)}%` }}
                     />

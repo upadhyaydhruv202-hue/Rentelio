@@ -1,6 +1,16 @@
 const prisma = require('../config/prisma');
 const { serializeProduct } = require('../utils/serializers');
-const { calcSecurityDeposit } = require('../utils/pricing');
+const { calcSecurityDeposit, calcPricePerHour } = require('../utils/pricing');
+
+const resolveHourlyPrice = (data, pricePerDay, existingHourly) => {
+  if (data.pricePerHour != null && data.pricePerHour !== '') {
+    return Number(data.pricePerHour);
+  }
+  if (existingHourly != null && Number(existingHourly) > 0) {
+    return Number(existingHourly);
+  }
+  return calcPricePerHour(pricePerDay);
+};
 
 const extraFields = (data, existing = {}) => ({
   storage: data.storage != null ? data.storage : existing.storage || '',
@@ -89,6 +99,7 @@ const Product = {
 
   async create(data) {
     const pricePerDay = Number(data.pricePerDay);
+    const pricePerHour = resolveHourlyPrice(data, pricePerDay);
     if (!data.image) {
       throw Object.assign(new Error('Please upload a product image before creating the product.'), {
         status: 400,
@@ -102,6 +113,7 @@ const Product = {
           category: data.category,
           quantity: Number(data.quantity),
           pricePerDay,
+          pricePerHour,
           status: data.status || 'Available',
           description: data.description || '',
           image: data.image,
@@ -121,6 +133,7 @@ const Product = {
 
     const pricePerDay =
       data.pricePerDay != null ? Number(data.pricePerDay) : Number(existing.pricePerDay);
+    const pricePerHour = resolveHourlyPrice(data, pricePerDay, existing.pricePerHour);
     const image = data.image != null ? data.image : existing.image;
     if (!image) {
       throw Object.assign(new Error('Please upload a product image before creating the product.'), {
@@ -136,6 +149,7 @@ const Product = {
           category: data.category ?? existing.category,
           quantity: data.quantity != null ? Number(data.quantity) : existing.quantity,
           pricePerDay,
+          pricePerHour,
           status: data.status ?? existing.status,
           description: data.description != null ? data.description : existing.description,
           image,

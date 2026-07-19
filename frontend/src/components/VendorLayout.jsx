@@ -5,9 +5,11 @@ import PortalRoute from './PortalRoute';
 import AmbientField from './AmbientField';
 import PageReveal from './PageReveal';
 import PortalSplash from './PortalSplash';
+import { useRealtime } from '../hooks/useRealtime';
 
 export default function VendorLayout({ vendor, darkMode, onToggleTheme, onLogout }) {
   const [open, setOpen] = useState(false);
+  useRealtime({ portal: 'vendor' });
 
   return (
     <PortalRoute portal="vendor" vendor={vendor}>

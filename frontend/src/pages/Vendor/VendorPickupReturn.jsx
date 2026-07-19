@@ -1,4 +1,5 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import Table, { StatusBadge } from '../../components/Table';
 import { formatDate } from '../../services/api';
@@ -19,12 +20,21 @@ const STAGES = [
 
 const FILTERS = ['today', 'tomorrow', 'week', 'month'];
 
-export default function VendorPickupReturn() {  const queryClient = useQueryClient();
-  const [filter, setFilter] = useState('week');
+export default function VendorPickupReturn() {
+  const queryClient = useQueryClient();
+  const [params, setParams] = useSearchParams();
+  const filter = FILTERS.includes(params.get('filter')) ? params.get('filter') : 'week';
+  const focusId = Number(params.get('focus')) || null;
+
+  const setFilter = (f) => {
+    const next = new URLSearchParams(params);
+    if (f === 'week') next.delete('filter');
+    else next.set('filter', f);
+    setParams(next, { replace: true });
+  };
+
   const [otpDrafts, setOtpDrafts] = useState({});
   const [msg, setMsg] = useState('');
-  const [scanCode, setScanCode] = useState('');
-  const [scanResult, setScanResult] = useState(null);
 
   const { data: rows = [], isLoading, error } = useQuery({
     queryKey: ['vendor', 'pickup', filter],
@@ -63,20 +73,18 @@ export default function VendorPickupReturn() {  const queryClient = useQueryCli
     onError: (e) => setMsg(e.message),
   });
 
-  const scanMutation = useMutation({
-    mutationFn: (code) => vendorApi.scan(code),
-    onSuccess: (data) => {
-      setScanResult(data);
-      setMsg(data.message || 'Scan matched');
-    },
-    onError: (e) => {
-      setScanResult(null);
-      setMsg(e.message);
-    },
-  });
+  const orderedRows = focusId
+    ? [...rows].sort((a, b) => (a.id === focusId ? -1 : b.id === focusId ? 1 : 0))
+    : rows;
 
   const columns = [
-    { key: 'id', label: 'ID', render: (r) => `#${r.id}` },
+    {
+      key: 'id',
+      label: 'ID',
+      render: (r) => (
+        <span className={focusId === r.id ? 'font-bold text-brand-700' : ''}>#{r.id}</span>
+      ),
+    },
     { key: 'customerName', label: 'Customer' },
     { key: 'productName', label: 'Product' },
     {
@@ -98,7 +106,11 @@ export default function VendorPickupReturn() {  const queryClient = useQueryCli
       key: 'actions',
       label: 'Actions',
       render: (r) => (
-        <div className="flex min-w-[240px] flex-col gap-2">
+        <div
+          className={`flex min-w-[240px] flex-col gap-2 rounded-lg p-1 ${
+            focusId === r.id ? 'bg-brand-50 ring-2 ring-brand-400 dark:bg-brand-950/40' : ''
+          }`}
+        >
           <div className="flex flex-wrap gap-1">
             <button
               type="button"
@@ -158,8 +170,8 @@ export default function VendorPickupReturn() {  const queryClient = useQueryCli
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="font-display text-2xl font-semibold">{'Pickup & Return'}</h1>
-          <p className="text-sm text-ink-500">Schedule, OTP verify, tracker stages & demo scan</p>
+          <h1 className="font-display text-2xl font-semibold">Pickup & Return</h1>
+          <p className="text-sm text-ink-500">Schedule, OTP verify, and tracker stages</p>
         </div>
         <div className="flex flex-wrap gap-1">
           {FILTERS.map((f) => (
@@ -177,48 +189,12 @@ export default function VendorPickupReturn() {  const queryClient = useQueryCli
         </div>
       </div>
 
-      <div className="flex flex-wrap items-end gap-2 rounded-2xl border border-ink-200/80 bg-white p-4 dark:border-ink-700 dark:bg-ink-900">
-        <label className="flex-1 text-sm font-medium text-ink-600 dark:text-ink-300">
-          Demo scan (rental ID or code)
-          <input
-            value={scanCode}
-            onChange={(e) => setScanCode(e.target.value)}
-            placeholder="e.g. RENT-42 or 42"
-            className="mt-1.5 w-full rounded-xl border border-ink-200 px-3 py-2 text-sm dark:border-ink-700 dark:bg-ink-950"
-          />
-        </label>
-        <button
-          type="button"
-          disabled={!scanCode.trim() || scanMutation.isPending}
-          onClick={() => scanMutation.mutate(scanCode.trim())}
-          className="rounded-xl bg-brand-600 px-4 py-2 text-sm text-white hover:bg-brand-500 disabled:opacity-60"
-        >
-          Scan
-        </button>
-      </div>
-
-      {scanResult?.checklist && (
-        <div className="rounded-xl border border-brand-200 bg-brand-50 px-4 py-3 text-sm dark:border-brand-800 dark:bg-brand-950/30">
-          <p className="font-medium text-brand-800 dark:text-brand-200">Scan checklist</p>
-          <ul className="mt-2 list-inside list-disc text-ink-600 dark:text-ink-300">
-            {scanResult.checklist.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
-          {scanResult.rental && (
-            <p className="mt-2 text-xs text-ink-500">
-              Matched rental #{scanResult.rental.id} — {scanResult.rental.productName}
-            </p>
-          )}
-        </div>
-      )}
-
       {msg && <p className="text-sm text-brand-700 dark:text-brand-300">{msg}</p>}
       {error && <p className="text-rose-600">{error.message}</p>}
       {isLoading ? (
         <p className="text-ink-500">Loading schedule…</p>
       ) : (
-        <Table columns={columns} rows={rows} />
+        <Table columns={columns} rows={orderedRows} />
       )}
     </div>
   );

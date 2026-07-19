@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import Table, { StatusBadge } from '../../components/Table';
 import { formatINR, formatDate } from '../../services/api';
@@ -15,8 +16,15 @@ const VIEWS = [
 
 export default function VendorOrders() {
   const queryClient = useQueryClient();
+  const [params, setParams] = useSearchParams();
   const [msg, setMsg] = useState('');
-  const [view, setView] = useState('orders');
+  const view = VIEWS.some((v) => v.id === params.get('view')) ? params.get('view') : 'orders';
+  const setView = (id) => {
+    const next = new URLSearchParams(params);
+    if (id === 'orders') next.delete('view');
+    else next.set('view', id);
+    setParams(next, { replace: true });
+  };
 
   const { data: rentals = [], isLoading, error } = useQuery({
     queryKey: ['vendor', 'rentals'],

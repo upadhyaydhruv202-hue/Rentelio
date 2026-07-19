@@ -11,6 +11,7 @@ const emptyForm = {
   category: '',
   quantity: 1,
   pricePerDay: '',
+  pricePerHour: '',
   status: 'Available',
   description: '',
   brand: '',
@@ -28,7 +29,8 @@ const emptyForm = {
 const ACCEPTED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
 const MAX_BYTES = 5 * 1024 * 1024;
 
-export default function VendorInventory() {  const queryClient = useQueryClient();
+export default function VendorInventory() {
+  const queryClient = useQueryClient();
   const [filters, setFilters] = useState({ brand: '', category: '', color: '', size: '', search: '' });
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState(null);
@@ -87,6 +89,7 @@ export default function VendorInventory() {  const queryClient = useQueryClient
       category: product.category,
       quantity: product.quantity,
       pricePerDay: product.pricePerDay,
+      pricePerHour: product.pricePerHour || '',
       status: product.status,
       description: product.description || '',
       brand: product.brand || '',
@@ -141,6 +144,10 @@ export default function VendorInventory() {  const queryClient = useQueryClient
         ...form,
         quantity: Number(form.quantity),
         pricePerDay: Number(form.pricePerDay),
+        pricePerHour:
+          form.pricePerHour !== '' && form.pricePerHour != null
+            ? Number(form.pricePerHour)
+            : undefined,
       },
       file: imageFile || undefined,
     });
@@ -179,6 +186,7 @@ export default function VendorInventory() {  const queryClient = useQueryClient
       render: (r) => [r.storage, r.edition].filter(Boolean).join(' · ') || '—',
     },
     { key: 'pricePerDay', label: 'Price/Day', render: (r) => formatINR(r.pricePerDay) },
+    { key: 'pricePerHour', label: 'Price/Hr', render: (r) => formatINR(r.pricePerHour) },
     { key: 'securityDeposit', label: 'Deposit', render: (r) => formatINR(r.securityDeposit) },
     { key: 'quantity', label: 'Qty' },
     { key: 'availableQuantity', label: 'Available', render: (r) => r.availableQuantity ?? '—' },
@@ -293,6 +301,7 @@ export default function VendorInventory() {  const queryClient = useQueryClient
             { key: 'warranty', label: 'Warranty', type: 'text' },
             { key: 'quantity', label: 'Quantity', type: 'number', required: true },
             { key: 'pricePerDay', label: 'Price Per Day', type: 'number', required: true },
+            { key: 'pricePerHour', label: 'Price Per Hour', type: 'number', required: false },
           ].map((field) => (
             <label key={field.key} className="text-sm font-medium text-ink-600 dark:text-ink-300">
               {field.label}
@@ -300,7 +309,9 @@ export default function VendorInventory() {  const queryClient = useQueryClient
                 type={field.type}
                 required={field.required}
                 min={field.type === 'number' ? 0 : undefined}
-                step={field.key === 'pricePerDay' ? '0.01' : undefined}
+                step={
+                  field.key === 'pricePerDay' || field.key === 'pricePerHour' ? '0.01' : undefined
+                }
                 value={form[field.key]}
                 onChange={(e) => setForm({ ...form, [field.key]: e.target.value })}
                 className="mt-1.5 w-full rounded-xl border border-ink-200 bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-ink-700 dark:bg-ink-950"

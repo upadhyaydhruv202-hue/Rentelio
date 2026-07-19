@@ -46,11 +46,17 @@ const Rental = {
         productId: Number(data.productId),
         startDate: new Date(data.startDate),
         returnDate: new Date(data.returnDate),
+        billingUnit: data.billingUnit === 'hourly' ? 'hourly' : 'daily',
+        durationUnits: Number(data.durationUnits) > 0 ? Number(data.durationUnits) : 1,
         amount: Number(data.amount),
+        discountAmount: Number(data.discountAmount) || 0,
+        couponCode: data.couponCode ? String(data.couponCode).slice(0, 40) : '',
         status: data.status || 'Active',
         fulfillment: data.fulfillment || 'pickup',
         shippingAddress: data.shippingAddress || '',
         lateFee: 0,
+        ...(data.scheduledPickup ? { scheduledPickup: new Date(data.scheduledPickup) } : {}),
+        ...(data.scheduledReturn ? { scheduledReturn: new Date(data.scheduledReturn) } : {}),
       },
     });
     return this.findById(rental.id);

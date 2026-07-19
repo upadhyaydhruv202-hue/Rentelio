@@ -4,8 +4,11 @@ import PortalRoute from './PortalRoute';
 import AmbientField from './AmbientField';
 import PageReveal from './PageReveal';
 import PortalSplash from './PortalSplash';
+import { useRealtime } from '../hooks/useRealtime';
 
 export default function UserLayout({ customer, onLogout, darkMode, onToggleTheme }) {
+  useRealtime({ portal: 'user' });
+
   return (
     <PortalRoute portal="user" customer={customer}>
       <div className="living-shell min-h-screen text-ink-900 dark:text-ink-100">

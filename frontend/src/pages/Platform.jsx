@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import Card from '../components/Card';
 import Table, { StatusBadge } from '../components/Table';
@@ -7,8 +8,11 @@ import StatGrid from '../components/StatGrid';
 import { api, formatDate } from '../services/api';
 import { invalidateLifecycle, POLL_MS, qk } from '../lib/query';
 
+const PLATFORM_TABS = ['health', 'backups', 'ads', 'reviews', 'overview'];
+
 export default function Platform() {
   const queryClient = useQueryClient();
+  const [params, setParams] = useSearchParams();
   const [adForm, setAdForm] = useState({
     title: '',
     body: '',
@@ -16,7 +20,13 @@ export default function Platform() {
     linkUrl: '/user/browse',
     active: true,
   });
-  const [tab, setTab] = useState('health');
+  const tab = PLATFORM_TABS.includes(params.get('tab')) ? params.get('tab') : 'health';
+  const setTab = (t) => {
+    const next = new URLSearchParams(params);
+    if (t === 'health') next.delete('tab');
+    else next.set('tab', t);
+    setParams(next, { replace: true });
+  };
 
   const { data: overview } = useQuery({
     queryKey: [...qk.adminPlatform, 'overview'],
@@ -65,7 +75,6 @@ export default function Platform() {
     },
   });
 
-  const tabs = ['health', 'backups', 'ads', 'reviews', 'overview'];
   const lastBackup = backups[0];
 
   return (
@@ -76,7 +85,7 @@ export default function Platform() {
       />
 
       <div className="flex flex-wrap gap-1">
-        {tabs.map((t) => (
+        {PLATFORM_TABS.map((t) => (
           <button
             key={t}
             type="button"

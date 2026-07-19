@@ -79,7 +79,7 @@ export default function VendorLogin({ onLogin }) {
             {loading ? 'Signing in…' : 'Sign in as Vendor'}
           </button>
           <p className="text-center text-xs text-ink-500">
-            Demo: vendor@rentelio.com / vendor123 ·{' '}
+            Demo: Dev · vendor@rentelio.com / vendor123 ·{' '}
             <Link to="/admin/login" className="font-medium text-brand-700 hover:underline">
               Super Admin
             </Link>{' '}

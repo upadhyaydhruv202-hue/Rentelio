@@ -51,6 +51,7 @@ model Product {
   category          String         @db.VarChar(100)
   quantity          Int            @default(1)
   pricePerDay       Decimal        @db.Decimal(10, 2)
+  pricePerHour      Decimal        @default(0) @db.Decimal(10, 2)
   status            String         @default("Available") @db.VarChar(50)
   description       String         @default("")
   image             String
@@ -88,6 +89,8 @@ model Rental {
   productId        Int
   startDate        DateTime  @db.Date
   returnDate       DateTime  @db.Date
+  billingUnit      String    @default("daily") @map("billing_unit") @db.VarChar(20)
+  durationUnits    Int       @default(1) @map("duration_units")
   amount           Decimal   @db.Decimal(10, 2)
   lateFee          Decimal   @default(0) @db.Decimal(10, 2)
   damageCharge     Decimal   @default(0) @map("damage_charge") @db.Decimal(10, 2)
@@ -240,6 +243,7 @@ model Notification {
   title      String    @db.VarChar(200)
   body       String
   type       String    @default("info") @db.VarChar(40)
+  link       String    @default("") @db.VarChar(255)
   audience   String    @default("user") @db.VarChar(20)
   priority   String    @default("Normal") @db.VarChar(20)
   channel    String    @default("website") @db.VarChar(40)
@@ -333,6 +337,7 @@ model VendorNotification {
   title     String   @db.VarChar(200)
   body      String
   type      String   @default("info") @db.VarChar(40)
+  link      String   @default("") @db.VarChar(255)
   read      Boolean  @default(false)
   createdAt DateTime @default(now()) @map("created_at")
   vendor    Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)

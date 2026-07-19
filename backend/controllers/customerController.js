@@ -157,7 +157,15 @@ const getDashboard = async (req, res) => {
 
 const createRental = async (req, res) => {
   try {
-    const { productId, startDate, returnDate, fulfillment, shippingAddress } = req.body;
+    const {
+      productId,
+      startDate,
+      returnDate,
+      billingUnit,
+      fulfillment,
+      shippingAddress,
+      couponCode,
+    } = req.body;
     if (!productId || !startDate || !returnDate) {
       return res.status(400).json({ message: 'Product and rental dates are required' });
     }
@@ -167,8 +175,10 @@ const createRental = async (req, res) => {
       productId: Number(productId),
       startDate,
       returnDate,
+      billingUnit,
       fulfillment,
       shippingAddress,
+      couponCode,
     });
 
     const full = await CustomerRental.findById(booked.rental.id, req.customer.id);
@@ -177,9 +187,16 @@ const createRental = async (req, res) => {
       rental: full,
       summary: {
         productName: booked.product.name,
+        billingUnit: booked.billingUnit,
+        durationUnits: booked.durationUnits,
         days: booked.days,
+        hours: booked.hours,
         startDate,
         returnDate,
+        subtotal: booked.subtotal,
+        discountAmount: booked.discountAmount,
+        discountLabel: booked.discountLabel,
+        couponCode: booked.couponCode,
         rentalCost: booked.amount,
         securityDeposit: booked.depositAmount,
         totalAmount: booked.amount + booked.depositAmount,

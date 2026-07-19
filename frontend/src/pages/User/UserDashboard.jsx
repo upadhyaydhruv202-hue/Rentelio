@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import ProductCard from '../../components/ProductCard';
@@ -9,10 +8,7 @@ import RentelioLogo from '../../components/RentelioLogo';
 import { userApi } from '../../services/api';
 import { POLL_MS, qk } from '../../lib/query';
 
-export default function UserDashboard({ customer }) {  const [compact, setCompact] = useState(
-    () => localStorage.getItem('rentelio_layout_compact') === '1'
-  );
-
+export default function UserDashboard({ customer }) {
   const { data, error, isLoading } = useQuery({
     queryKey: qk.userDashboard,
     queryFn: userApi.getDashboard,
@@ -30,12 +26,6 @@ export default function UserDashboard({ customer }) {  const [compact, setCompa
   } catch {
     recent = [];
   }
-
-  const toggleLayout = () => {
-    const next = !compact;
-    setCompact(next);
-    localStorage.setItem('rentelio_layout_compact', next ? '1' : '0');
-  };
 
   if (isLoading) return <p className="text-ink-500">{'Loading your store…'}</p>;
   if (error) return <p className="text-rose-600">{error.message}</p>;
@@ -58,39 +48,30 @@ export default function UserDashboard({ customer }) {  const [compact, setCompa
       />
 
       <section className="panel-ink px-6 py-10">
-        <div className="relative z-[1] flex flex-wrap items-start justify-between gap-4">
-          <div className="max-w-2xl text-left">
-            <RentelioLogo
-              size="lg"
-              spin
-              colorClass="text-white"
-              showTagline
-              taglineClass="!text-brand-300 !mt-2"
-            />
-            <h1 className="mt-6 font-display text-2xl font-semibold tracking-tight text-white sm:text-3xl">
-              {firstName}, {'ready to rent?'}
-            </h1>
-            <p className="mt-2 max-w-xl text-sm text-white/75">{'Live inventory from Rentelio — book available gear and track it in My Rentals.'}</p>
-            <Link
-              to="/user/browse"
-              className="btn-living mt-5 inline-flex rounded-xl bg-brand-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-400"
-            >
-              {'Browse all products'}
-            </Link>
-          </div>
-          <button
-            type="button"
-            onClick={toggleLayout}
-            className="btn-living rounded-lg border border-white/25 px-3 py-1.5 text-xs text-white/85"
+        <div className="relative z-[1] max-w-2xl text-left">
+          <RentelioLogo
+            size="lg"
+            spin
+            colorClass="text-white"
+            showTagline
+            taglineClass="!text-brand-300 !mt-2"
+          />
+          <h1 className="mt-6 font-display text-2xl font-semibold tracking-tight text-white sm:text-3xl">
+            {firstName}, {'ready to rent?'}
+          </h1>
+          <p className="mt-2 max-w-xl text-sm text-white/75">
+            {'Live inventory from Rentelio — book available gear and track it in My Rentals.'}
+          </p>
+          <Link
+            to="/user/browse"
+            className="btn-living mt-5 inline-flex rounded-xl bg-brand-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-400"
           >
-            {compact ? 'Comfortable layout' : 'Compact layout'}
-          </button>
+            {'Browse all products'}
+          </Link>
         </div>
       </section>
 
-      <section
-        className={`grid gap-4 ${compact ? 'sm:grid-cols-4' : 'sm:grid-cols-2 lg:grid-cols-4'}`}
-      >
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {cards.map((c) => (
           <div key={c.label} className="holo-card p-5">
             <p className="text-sm text-ink-500 dark:text-ink-400">{c.label}</p>

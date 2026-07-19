@@ -42,8 +42,9 @@ const {
   markRead,
   adminBroadcast,
   adminList,
+  unreadCount,
 } = require('../controllers/notificationController');
-const { getWallet, adminCredit } = require('../controllers/walletController');
+const { getWallet, adminCredit, depositWallet } = require('../controllers/walletController');
 const { getCart, addToCart, removeFromCart, clearCart } = require('../controllers/cartController');
 const { getWishlist, addToWishlist, removeFromWishlist } = require('../controllers/wishlistController');
 const { validateCoupon, listCoupons, createCoupon } = require('../controllers/couponController');
@@ -140,12 +141,14 @@ function registerV2Routes(app) {
 
   // Notifications
   app.get('/api/notifications', requireCustomer, listForCustomer);
+  app.get('/api/notifications/unread-count', requireCustomer, unreadCount);
   app.put('/api/notifications/:id/read', requireCustomer, markRead);
   app.post('/api/notifications/broadcast', requireStaff, requireAdmin, adminBroadcast);
   app.get('/api/notifications/admin', requireStaff, requireAdmin, adminList);
 
   // Wallet
   app.get('/api/wallet', requireCustomer, getWallet);
+  app.post('/api/wallet/deposit', requireCustomer, depositWallet);
   app.post('/api/wallet/:customerId/credit', requireStaff, requireAdmin, adminCredit);
 
   // Cart

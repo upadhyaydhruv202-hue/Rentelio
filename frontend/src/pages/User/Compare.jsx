@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import ProductMedia from '../../components/ProductMedia';
-import { formatINR, productDeposit, userApi } from '../../services/api';
+import { formatINR, productDeposit, productHourlyRate, userApi } from '../../services/api';
 
 const STORAGE_KEY = 'rentelio_compare_ids';
 
@@ -26,7 +26,8 @@ export function toggleCompareId(id) {
   return next;
 }
 
-export default function Compare() {  const [ids, setIds] = useState(getCompareIds);
+export default function Compare() {
+  const [ids, setIds] = useState(getCompareIds);
 
   useEffect(() => {
     const sync = () => setIds(getCompareIds());
@@ -95,6 +96,7 @@ export default function Compare() {  const [ids, setIds] = useState(getCompareI
                 ['Category', (p) => p.category],
                 ['Brand', (p) => p.brand || '—'],
                 ['Price / day', (p) => formatINR(p.pricePerDay)],
+                ['Price / hour', (p) => formatINR(productHourlyRate(p))],
                 ['Deposit', (p) => formatINR(productDeposit(p))],
                 ['Condition', (p) => p.condition || '—'],
                 ['Storage', (p) => p.storage || '—'],

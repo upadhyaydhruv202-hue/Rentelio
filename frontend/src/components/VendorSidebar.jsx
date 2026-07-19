@@ -1,5 +1,8 @@
 import { NavLink } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import RentelioLogo from './RentelioLogo';
+import { vendorApi } from '../services/vendorApi';
+import { POLL_MS } from '../lib/query';
 
 const links = [
   { to: '/vendor/dashboard', label: 'Dashboard', end: true },
@@ -11,11 +14,18 @@ const links = [
   { to: '/vendor/discounts', label: 'Discounts & Offers' },
   { to: '/vendor/coupons', label: 'Coupons' },
   { to: '/vendor/reports', label: 'Reports' },
-  { to: '/vendor/notifications', label: 'Notifications' },
+  { to: '/vendor/notifications', label: 'Notifications', badgeKey: 'notif' },
   { to: '/vendor/profile', label: 'Profile' },
 ];
 
 export default function VendorSidebar({ open, onClose, vendor }) {
+  const { data: unread } = useQuery({
+    queryKey: ['vendor', 'notifications', 'unread'],
+    queryFn: vendorApi.getUnreadNotificationCount,
+    refetchInterval: POLL_MS,
+  });
+  const unreadCount = unread?.count || 0;
+
   return (
     <>
       {open && (
@@ -54,19 +64,24 @@ export default function VendorSidebar({ open, onClose, vendor }) {
               end={link.end}
               onClick={onClose}
               className={({ isActive }) =>
-                `nav-link-living rounded-xl px-3 py-2.5 text-sm font-medium ${
+                `nav-link-living flex items-center justify-between rounded-xl px-3 py-2.5 text-sm font-medium ${
                   isActive
                     ? 'is-active'
                     : 'text-ink-600 hover:bg-brand-500/10 dark:text-ink-300 dark:hover:bg-brand-500/10'
                 }`
               }
             >
-              {link.label}
+              <span>{link.label}</span>
+              {link.badgeKey === 'notif' && unreadCount > 0 && (
+                <span className="rounded-full bg-rose-600 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
             </NavLink>
           ))}
         </nav>
         <div className="border-t border-brand-500/10 p-4 text-xs text-ink-400">
-          Seller Central · Living UI
+          Seller Central · Live alerts on
         </div>
       </aside>
     </>

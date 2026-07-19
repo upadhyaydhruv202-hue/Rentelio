@@ -11,22 +11,42 @@ export const DASHBOARDS = {
   [ROLES.SUPER_ADMIN]: '/admin/dashboard',
 };
 
+export const STORAGE_KEYS = {
+  adminUser: 'rentelio_user',
+  adminToken: 'rentelio_token',
+  customer: 'rentelio_customer',
+  customerToken: 'rentelio_customer_token',
+  vendor: 'rentelio_vendor',
+  vendorToken: 'rentelio_vendor_token',
+  theme: 'rentelio_theme',
+};
+
 export function dashboardForRole(role) {
   return DASHBOARDS[role] || '/user/login';
 }
 
-/** Clear other portal sessions so only one role is active at a time */
-export function clearOtherSessions(keep) {
-  if (keep !== 'admin') {
-    localStorage.removeItem('rentelio_user');
-    localStorage.removeItem('rentelio_token');
+export function readJsonStorage(key) {
+  try {
+    return JSON.parse(localStorage.getItem(key) || 'null');
+  } catch {
+    return null;
   }
-  if (keep !== 'user') {
-    localStorage.removeItem('rentelio_customer');
-    localStorage.removeItem('rentelio_customer_token');
-  }
-  if (keep !== 'vendor') {
-    localStorage.removeItem('rentelio_vendor');
-    localStorage.removeItem('rentelio_vendor_token');
+}
+
+/**
+ * Portals may stay logged in at the same time so User / Vendor / Super Admin
+ * can run in separate browser tabs during demos.
+ * Only clear the portal being logged out — never wipe sibling sessions.
+ */
+export function clearPortalSession(portal) {
+  if (portal === 'admin') {
+    localStorage.removeItem(STORAGE_KEYS.adminUser);
+    localStorage.removeItem(STORAGE_KEYS.adminToken);
+  } else if (portal === 'user') {
+    localStorage.removeItem(STORAGE_KEYS.customer);
+    localStorage.removeItem(STORAGE_KEYS.customerToken);
+  } else if (portal === 'vendor') {
+    localStorage.removeItem(STORAGE_KEYS.vendor);
+    localStorage.removeItem(STORAGE_KEYS.vendorToken);
   }
 }

@@ -66,6 +66,7 @@ router.delete('/discounts/:id', ctrl.deleteDiscount);
 router.get('/reports', ctrl.getReports);
 
 router.get('/notifications', ctrl.listNotifications);
+router.get('/notifications/unread-count', ctrl.unreadVendorCount);
 router.put('/notifications/:id/read', ctrl.markNotificationRead);
 
 module.exports = router;

@@ -1,9 +1,11 @@
 require('dotenv').config();
 const path = require('path');
+const http = require('http');
 const express = require('express');
 const cors = require('cors');
 const prisma = require('./config/prisma');
 const { ensureUploadDir } = require('./services/productImage');
+const { initRealtime } = require('./services/realtime');
 
 const authRoutes = require('./routes/authRoutes');
 const productRoutes = require('./routes/productRoutes');
@@ -23,7 +25,7 @@ app.use(express.json({ limit: '2mb' }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 app.get('/api/health', (_req, res) => {
-  res.json({ status: 'ok', app: 'Rentelio', orm: 'prisma' });
+  res.json({ status: 'ok', app: 'Rentelio', orm: 'prisma', realtime: true });
 });
 
 app.use('/api', authRoutes);
@@ -42,8 +44,11 @@ app.use((err, _req, res, _next) => {
 const start = async () => {
   try {
     await prisma.$connect();
-    app.listen(PORT, () => {
+    const server = http.createServer(app);
+    initRealtime(server);
+    server.listen(PORT, () => {
       console.log(`Rentelio API running on http://localhost:${PORT}`);
+      console.log('Realtime sockets enabled at /socket.io');
     });
   } catch (error) {
     console.error('Failed to start server:', error.message);

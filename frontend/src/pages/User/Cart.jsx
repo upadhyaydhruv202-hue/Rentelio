@@ -1,10 +1,11 @@
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import ProductMedia from '../../components/ProductMedia';
-import { formatINR, productDeposit, userApi } from '../../services/api';
+import { formatINR, productDeposit, productHourlyRate, userApi } from '../../services/api';
 import { invalidateLifecycle, POLL_MS, qk } from '../../lib/query';
 
-export default function Cart() {  const queryClient = useQueryClient();
+export default function Cart() {
+  const queryClient = useQueryClient();
 
   const { data: items = [], isLoading, error } = useQuery({
     queryKey: qk.userCart,
@@ -67,7 +68,7 @@ export default function Cart() {  const queryClient = useQueryClient();
                 <div className="min-w-0 flex-1">
                   <p className="font-display font-semibold">{p.name}</p>
                   <p className="text-sm text-ink-500">
-                    {formatINR(p.pricePerDay)} / {'day'} · {'Deposit'}{' '}
+                    {formatINR(p.pricePerDay)} / {'day'} · {formatINR(productHourlyRate(p))} / {'hr'} · {'Deposit'}{' '}
                     {formatINR(productDeposit(p))}
                   </p>
                 </div>

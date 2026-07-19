@@ -1,5 +1,16 @@
 const prisma = require('../config/prisma');
 const { logActivity } = require('../services/activity');
+const { notifyCustomer, notifyVendor, getIo } = require('../services/realtime');
+
+const TYPE_LINKS = {
+  wallet: '/user/wallet',
+  rental: '/user/rentals',
+  order: '/user/rentals',
+  pickup: '/user/rentals',
+  deposit: '/user/wallet',
+  info: '/user/notifications',
+  promo: '/user/browse',
+};
 
 const listForCustomer = async (req, res) => {
   try {
@@ -9,10 +20,30 @@ const listForCustomer = async (req, res) => {
       orderBy: { id: 'desc' },
       take: 50,
     });
-    res.json(rows);
+    res.json(
+      rows.map((n) => ({
+        ...n,
+        link: n.link || TYPE_LINKS[n.type] || '/user/notifications',
+      }))
+    );
   } catch (error) {
     console.error('List notifications error:', error);
     res.status(500).json({ message: 'Failed to load notifications' });
+  }
+};
+
+const unreadCount = async (req, res) => {
+  try {
+    const customerId = req.customer.id;
+    const count = await prisma.notification.count({
+      where: {
+        read: false,
+        OR: [{ customerId }, { audience: 'all' }],
+      },
+    });
+    res.json({ count });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to count notifications' });
   }
 };
 
@@ -22,17 +53,30 @@ const markRead = async (req, res) => {
     const customerId = req.customer.id;
 
     const existing = await prisma.notification.findFirst({
-      where: { id, customerId },
+      where: {
+        id,
+        OR: [{ customerId }, { audience: 'all' }],
+      },
     });
     if (!existing) {
       return res.status(404).json({ message: 'Notification not found' });
     }
 
-    const row = await prisma.notification.update({
-      where: { id },
-      data: { read: true },
+    // Audience-all rows without customerId: create a read copy for this user isn't ideal;
+    // mark the row if it belongs to the customer, otherwise acknowledge as read client-side.
+    if (existing.customerId === customerId) {
+      const row = await prisma.notification.update({
+        where: { id },
+        data: { read: true },
+      });
+      return res.json({ ...row, link: row.link || TYPE_LINKS[row.type] || '/user/notifications' });
+    }
+
+    res.json({
+      ...existing,
+      read: true,
+      link: existing.link || TYPE_LINKS[existing.type] || '/user/notifications',
     });
-    res.json(row);
   } catch (error) {
     console.error('Mark read error:', error);
     res.status(500).json({ message: 'Failed to mark notification read' });
@@ -48,28 +92,29 @@ const adminBroadcast = async (req, res) => {
       audience = 'all',
       priority = 'Normal',
       channel = 'website',
+      link = '',
     } = req.body || {};
     if (!title || !body) {
       return res.status(400).json({ message: 'title and body are required' });
     }
 
+    const resolvedLink = link || TYPE_LINKS[type] || '/user/browse';
+
     if (audience === 'all' || audience === 'users' || audience === 'All Users') {
       const customers = await prisma.customer.findMany({ select: { id: true } });
-      const rows = await prisma.$transaction(
-        customers.map((c) =>
-          prisma.notification.create({
-            data: {
-              customerId: c.id,
-              title,
-              body,
-              type,
-              audience: 'user',
-              priority,
-              channel,
-            },
-          })
-        )
-      );
+      const rows = [];
+      for (const c of customers) {
+        const row = await notifyCustomer({
+          customerId: c.id,
+          title,
+          body,
+          type,
+          link: resolvedLink,
+          audience: 'user',
+          priority,
+        });
+        rows.push(row);
+      }
       await logActivity('notification', `Broadcast sent: ${title}`, {
         count: rows.length,
         priority,
@@ -85,18 +130,24 @@ const adminBroadcast = async (req, res) => {
 
     if (audience === 'vendors' || audience === 'All Vendors') {
       const vendors = await prisma.vendor.findMany({ select: { id: true } });
-      const rows = await prisma.$transaction(
-        vendors.map((v) =>
-          prisma.vendorNotification.create({
-            data: { vendorId: v.id, title, body, type },
+      const rows = [];
+      for (const v of vendors) {
+        rows.push(
+          await notifyVendor({
+            vendorId: v.id,
+            title,
+            body,
+            type,
+            link: '/vendor/notifications',
           })
-        )
-      );
+        );
+      }
       await prisma.notification.create({
         data: {
           title,
           body,
           type,
+          link: '/vendor/notifications',
           audience: 'vendor',
           priority,
           channel,
@@ -112,8 +163,9 @@ const adminBroadcast = async (req, res) => {
     }
 
     const row = await prisma.notification.create({
-      data: { title, body, type, audience, priority, channel },
+      data: { title, body, type, link: resolvedLink, audience, priority, channel },
     });
+    getIo()?.to('admin').emit('notification:new', row);
     await logActivity('notification', `Admin notification created: ${title}`, { id: row.id });
     res.status(201).json({
       ...row,
@@ -140,4 +192,4 @@ const adminList = async (req, res) => {
   }
 };
 
-module.exports = { listForCustomer, markRead, adminBroadcast, adminList };
+module.exports = { listForCustomer, markRead, adminBroadcast, adminList, unreadCount };

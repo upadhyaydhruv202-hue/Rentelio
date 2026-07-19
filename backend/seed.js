@@ -4,13 +4,13 @@
  *
  * Demo logins preserved:
  *   admin@rentelio.com / admin123
- *   vendor@rentelio.com / vendor123
+ *   vendor@rentelio.com / vendor123  (single vendor: Dev)
  *   customer@rentelio.com / customer123
  */
 require('dotenv').config();
 const bcrypt = require('bcryptjs');
 const prisma = require('./config/prisma');
-const { calcSecurityDeposit } = require('./utils/pricing');
+const { calcSecurityDeposit, calcPricePerHour } = require('./utils/pricing');
 
 const FIRST = [
   'Aarav', 'Vivaan', 'Aditya', 'Rahul', 'Rohan', 'Pranav', 'Arjun', 'Karthik', 'Harsh', 'Yash',
@@ -355,57 +355,43 @@ const seed = async () => {
     },
   });
 
-  // ——— Vendors (200+) ———
-  const vendorRows = [];
-  for (let i = 0; i < 200; i++) {
-    const owner = personName(i + 11);
-    const company = i === 0 ? 'LensHub India' : companyName(i);
-    const loc = pick(CITIES, i);
-    const kycRoll = i % 10;
-    const kycStatus =
-      kycRoll < 6 ? 'Verified' : kycRoll < 8 ? 'Pending Review' : kycRoll === 8 ? 'Suspicious' : 'Rejected';
-    const status =
-      kycStatus === 'Verified' ? 'Approved' : kycStatus === 'Rejected' ? 'Rejected' : i % 17 === 0 ? 'Blacklisted' : 'Pending';
-    vendorRows.push({
-      name: i === 0 ? 'Priya Nair' : owner,
-      email: i === 0 ? 'vendor@rentelio.com' : emailFor(owner, i, 'rentbiz.in'),
-      password: i === 0 ? vendorHash : passwordHash,
-      phone: phone(i + 50),
-      company,
-      ownerName: i === 0 ? 'Priya Nair' : owner,
-      address: address(i + 3),
-      location: loc.city,
-      status: i === 0 ? 'Approved' : status === 'Blacklisted' ? 'Pending' : status,
-      verified: i === 0 || kycStatus === 'Verified',
-      blacklisted: i !== 0 && (status === 'Blacklisted' || i % 17 === 0),
-      performance: 55 + (hashish(i) % 45),
-      fraudScore: kycStatus === 'Suspicious' ? 70 + (i % 25) : 5 + (hashish(i) % 40),
-      kycStatus: i === 0 ? 'Verified' : kycStatus,
-      aadhaarUrl: `/uploads/kyc/aadhaar-${i + 1}.pdf`,
-      panUrl: `/uploads/kyc/pan-${i + 1}.pdf`,
-      licenseUrl: i % 3 === 0 ? `/uploads/kyc/license-${i + 1}.pdf` : '',
-      businessCertUrl: `/uploads/kyc/biz-${i + 1}.pdf`,
-      gstUrl: i % 2 === 0 ? `/uploads/kyc/gst-${i + 1}.pdf` : '',
-      kycNotes:
-        kycStatus === 'Verified'
-          ? 'GST and PAN verified against MCA records'
-          : kycStatus === 'Suspicious'
-            ? 'Document mismatch flagged for manual review'
-            : 'Awaiting document completeness check',
-      complaintsCount: hashish(i) % 6,
-      failedKycAttempts: kycStatus === 'Rejected' ? 1 + (i % 3) : 0,
-      pendingPayout: money(0, 85000, i),
-      paidOut: money(5000, 420000, i + 9),
-      lateFeeMode: i % 2 === 0 ? 'daily' : 'flat',
-      lateFeeAmount: money(50, 400, i),
-      gracePeriodHours: [0, 3, 6, 12][i % 4],
-      maxLateFeePercent: [50, 75, 100][i % 3],
-      createdAt: daysAgo(700 - (i % 680)),
-    });
-  }
-  await chunkedCreateMany(prisma.vendor, vendorRows, 50);
+  // ——— Single vendor: Dev (owns every product on the platform) ———
+  await prisma.vendor.create({
+    data: {
+      name: 'Dev',
+      email: 'vendor@rentelio.com',
+      password: vendorHash,
+      phone: phone(50),
+      company: 'Dev Rentals',
+      ownerName: 'Dev',
+      address: address(3),
+      location: 'Bengaluru',
+      status: 'Approved',
+      verified: true,
+      blacklisted: false,
+      performance: 96,
+      fraudScore: 4,
+      kycStatus: 'Verified',
+      aadhaarUrl: '/uploads/kyc/aadhaar-dev.pdf',
+      panUrl: '/uploads/kyc/pan-dev.pdf',
+      licenseUrl: '/uploads/kyc/license-dev.pdf',
+      businessCertUrl: '/uploads/kyc/biz-dev.pdf',
+      gstUrl: '/uploads/kyc/gst-dev.pdf',
+      kycNotes: 'GST and PAN verified — sole platform vendor (Dev)',
+      complaintsCount: 0,
+      failedKycAttempts: 0,
+      pendingPayout: money(12000, 85000, 1),
+      paidOut: money(50000, 420000, 9),
+      lateFeeMode: 'daily',
+      lateFeeAmount: money(50, 400, 1),
+      gracePeriodHours: 6,
+      maxLateFeePercent: 100,
+      createdAt: daysAgo(700),
+    },
+  });
   const vendors = await prisma.vendor.findMany({ orderBy: { id: 'asc' } });
-  console.log(`Vendors: ${vendors.length}`);
+  const vendorDev = vendors[0];
+  console.log(`Vendors: ${vendors.length} (Dev only)`);
 
   // ——— Customers (200+) ———
   const customerRows = [];
@@ -418,7 +404,7 @@ const seed = async () => {
       phone: phone(i + 900),
       address: address(i + 40),
       profileImage: '',
-      status: i % 23 === 0 ? 'Suspended' : 'Active',
+      status: i === 0 ? 'Active' : i % 23 === 0 ? 'Suspended' : 'Active',
       verified: i === 0 || i % 5 !== 0,
       idDocumentUrl: i % 5 !== 0 ? `/uploads/ids/aadhaar-user-${i + 1}.pdf` : '',
       language: pick(LANGUAGES, i),
@@ -432,13 +418,13 @@ const seed = async () => {
   const customers = await prisma.customer.findMany({ orderBy: { id: 'asc' } });
   console.log(`Customers: ${customers.length}`);
 
-  // ——— Products (220+) — coherent brand + model pairs ———
+  // ——— Products (250+) — all catalog items belong to vendor Dev ———
   const productRows = [];
   let pIdx = 0;
-  while (productRows.length < 220) {
+  while (productRows.length < 250) {
     const group = pick(CATEGORIES, pIdx);
     const [brand, item] = pick(group.products, pIdx);
-    const vendor = vendors[pIdx % vendors.length];
+    const vendor = vendorDev;
     const price = money(199, 8999, pIdx + 17);
     const sku = `REN-${group.cat.slice(0, 3).toUpperCase()}-${String(pIdx + 1).padStart(4, '0')}`;
     const qty = 1 + (hashish(pIdx) % 8);
@@ -449,8 +435,9 @@ const seed = async () => {
       category: group.cat,
       quantity: qty,
       pricePerDay: price,
+      pricePerHour: calcPricePerHour(price),
       status: maint ? 'Maintenance' : status,
-      description: `${brand} ${item} available for rent across India. Includes basic accessories and condition report. SKU ${sku}.`,
+      description: `${brand} ${item} available for rent across India. Includes basic accessories and condition report. SKU ${sku}. Listed by Dev.`,
       image: `/uploads/products/seed-${(pIdx % 10) + 1}.jpg`,
       securityDeposit: calcSecurityDeposit(price),
       brand,
@@ -491,6 +478,8 @@ const seed = async () => {
       productId: product.id,
       startDate: start,
       returnDate: ret,
+      billingUnit: 'daily',
+      durationUnits: days,
       amount,
       lateFee: late,
       damageCharge: cfg.damage || 0,
@@ -620,6 +609,92 @@ const seed = async () => {
     });
   }
 
+  // ——— Vendor Dev dense pickup / return / money workflow data ———
+  // All products belong to Dev; pickup/return dates fall inside week/month filters.
+  for (let i = 0; i < 18; i++) {
+    // Future pickups within the next 6 days
+    pushRental({
+      i: 900 + i,
+      ci: i + 20,
+      pi: i % 40,
+      startAgo: -(1 + (i % 6)),
+      days: 3 + (i % 6),
+      status: 'Requested',
+      pickupStatus: 'Scheduled',
+      returnStatus: 'Pending',
+      tracker: pick(['Pickup Scheduled', 'Pickup Assigned', 'Out For Pickup'], i),
+      picked: false,
+      returned: false,
+    });
+  }
+  for (let i = 0; i < 16; i++) {
+    // Active rentals with return due within the next week
+    pushRental({
+      i: 920 + i,
+      ci: i + 25,
+      pi: (i + 5) % 40,
+      startAgo: 2 + (i % 3),
+      days: 4 + (i % 5),
+      status: 'Active',
+      pickupStatus: 'Picked Up',
+      returnStatus: 'Pending',
+      tracker: 'Rental Active',
+      picked: true,
+      returned: false,
+    });
+  }
+  for (let i = 0; i < 12; i++) {
+    // Returns due today through next few days
+    pushRental({
+      i: 940 + i,
+      ci: i + 30,
+      pi: (i + 12) % 40,
+      startAgo: 3 + (i % 3),
+      days: 4 + (i % 4),
+      status: 'Return Pending',
+      pickupStatus: 'Picked Up',
+      returnStatus: 'Pending Verification',
+      tracker: pick(['Return Scheduled', 'Returned', 'Inspection'], i),
+      picked: true,
+      returned: false,
+      damage: i % 3 === 0 ? money(150, 1200, i + 3) : 0,
+      damageReport: i % 3 === 0 ? 'Scratches on body noted during return check.' : '',
+    });
+  }
+  for (let i = 0; i < 10; i++) {
+    pushRental({
+      i: 960 + i,
+      ci: i + 35,
+      pi: (i + 20) % 40,
+      startAgo: 25 + (i % 40),
+      days: 3 + (i % 5),
+      status: 'Completed',
+      pickupStatus: 'Picked Up',
+      returnStatus: 'Returned',
+      tracker: 'Completed',
+      picked: true,
+      returned: true,
+      rating: 3 + (i % 3),
+      review: pick(REVIEW_COMMENTS, i + 8),
+    });
+  }
+  for (let i = 0; i < 6; i++) {
+    pushRental({
+      i: 980 + i,
+      ci: i + 40,
+      pi: (i + 28) % 40,
+      startAgo: 10 + (i % 4),
+      days: 3 + (i % 3),
+      status: 'Overdue',
+      pickupStatus: 'Picked Up',
+      returnStatus: 'Pending',
+      tracker: 'Rental Active',
+      picked: true,
+      returned: false,
+      lateFee: money(200, 1800, i + 5),
+    });
+  }
+
   await chunkedCreateMany(prisma.rental, rentalRows, 50);
   const rentals = await prisma.rental.findMany({ orderBy: { id: 'asc' } });
   console.log(`Rentals: ${rentals.length}`);
@@ -745,7 +820,7 @@ const seed = async () => {
   for (let i = 0; i < 220; i++) {
     const t = pick(VENDOR_NOTIFS, i);
     vNotifRows.push({
-      vendorId: vendors[i % vendors.length].id,
+      vendorId: vendorDev.id,
       title: t.title,
       body: `${t.body} Ticket VR-${2000 + i}`,
       type: t.type,
@@ -811,9 +886,52 @@ const seed = async () => {
   await chunkedCreateMany(prisma.walletTxn, walletRows, 50);
   console.log(`Wallet/payment txns: ${walletRows.length}`);
 
-  // ——— Coupons + redemptions via usedCount / rental coupon codes ———
-  const couponRows = [];
-  for (let i = 0; i < 80; i++) {
+  // ——— Coupons (demo codes + vendor catalog) ———
+  const couponRows = [
+    {
+      code: 'DEV15',
+      type: 'percent',
+      value: 15,
+      label: 'Dev 15% off',
+      description: '15% off rental cost for Dev catalog',
+      minAmount: 0,
+      maxUsage: 0,
+      usedCount: 0,
+      active: true,
+      vendorId: vendorDev.id,
+      expiresAt: addDays(new Date(), 365),
+      createdAt: daysAgo(10),
+    },
+    {
+      code: 'SAVE100',
+      type: 'flat',
+      value: 100,
+      label: 'Flat ₹100 off',
+      description: '₹100 off when rental is at least ₹500',
+      minAmount: 500,
+      maxUsage: 0,
+      usedCount: 0,
+      active: true,
+      vendorId: vendorDev.id,
+      expiresAt: addDays(new Date(), 365),
+      createdAt: daysAgo(8),
+    },
+    {
+      code: 'WEEKEND20',
+      type: 'percent',
+      value: 20,
+      label: 'Weekend 20%',
+      description: 'Platform weekend promo — 20% off',
+      minAmount: 1000,
+      maxUsage: 500,
+      usedCount: 12,
+      active: true,
+      vendorId: null,
+      expiresAt: addDays(new Date(), 90),
+      createdAt: daysAgo(20),
+    },
+  ];
+  for (let i = 0; i < 40; i++) {
     couponRows.push({
       code: `INDIA${100 + i}`,
       type: i % 3 === 0 ? 'flat' : 'percent',
@@ -822,21 +940,21 @@ const seed = async () => {
       description: 'Pan-India rental discount for eligible bookings',
       minAmount: money(500, 3000, i),
       maxUsage: 50 + (i % 100),
-      usedCount: 5 + (hashish(i) % 40),
+      usedCount: Math.min(5 + (hashish(i) % 20), 40),
       active: i % 11 !== 0,
-      vendorId: i % 4 === 0 ? null : vendors[i % vendors.length].id,
+      vendorId: i % 4 === 0 ? null : vendorDev.id,
       expiresAt: addDays(new Date(), 20 + (i % 120)),
       createdAt: daysAgo(100 + (i % 200)),
     });
   }
   await chunkedCreateMany(prisma.coupon, couponRows, 40);
-  console.log(`Coupons: ${couponRows.length}`);
+  console.log(`Coupons: ${couponRows.length} (demo: DEV15, SAVE100, WEEKEND20)`);
 
   // ——— Discount offers ———
   const discountRows = [];
   for (let i = 0; i < 120; i++) {
     discountRows.push({
-      vendorId: vendors[i % vendors.length].id,
+      vendorId: vendorDev.id,
       name: `${pick(['Student', 'Corporate', 'Festival', 'Flash', 'Weekend'], i)} Offer ${i + 1}`,
       discountType: pick(['Student Discount', 'Corporate Discount', 'Festival Offers', 'Flash Sale', 'Weekend Offers'], i),
       type: i % 2 === 0 ? 'percent' : 'flat',
@@ -854,7 +972,7 @@ const seed = async () => {
   // ——— Settlements (200+) ———
   const settlementRows = [];
   for (let i = 0; i < 200; i++) {
-    const vendor = vendors[i % vendors.length];
+    const vendor = vendorDev;
     const rental = rentals[(i * 3) % rentals.length];
     const rentalAmount = money(800, 45000, i + 6);
     const commission = Math.round(rentalAmount * 0.12 * 100) / 100;
@@ -878,10 +996,10 @@ const seed = async () => {
   await chunkedCreateMany(prisma.settlement, settlementRows, 50);
   console.log(`Settlements: ${settlementRows.length}`);
 
-  // ——— Vendor invoices (200+) ———
+  // ——— Vendor invoices (200+) + extra Dev invoices for Money Workflow ———
   const invoiceRows = [];
   for (let i = 0; i < 200; i++) {
-    const vendor = vendors[i % vendors.length];
+    const vendor = vendorDev;
     const rental = rentals[(i * 5) % rentals.length];
     invoiceRows.push({
       vendorId: vendor.id,
@@ -891,6 +1009,22 @@ const seed = async () => {
       amount: money(300, 28000, i + 12),
       details: `${pick(PAY_NOTES, i)} · Generated for rental cycle`,
       createdAt: daysAgo(i % 360),
+    });
+  }
+  const demoVendorRentals = rentals.filter((r) => {
+    const product = products.find((p) => p.id === r.productId);
+    return product && product.vendorId === vendorDev.id;
+  });
+  for (let i = 0; i < 28; i++) {
+    const rental = demoVendorRentals[i % Math.max(demoVendorRentals.length, 1)] || rentals[i % rentals.length];
+    invoiceRows.push({
+      vendorId: vendorDev.id,
+      rentalId: rental.id,
+      invoiceNo: `INV-DEV-${2025000 + i}`,
+      type: pick(['rental', 'late_fee', 'damage', 'deposit'], i + 3),
+      amount: money(450, 32000, i + 44),
+      details: `${pick(PAY_NOTES, i + 7)} · Dev Rentals invoice`,
+      createdAt: daysAgo(i % 90),
     });
   }
   await chunkedCreateMany(prisma.vendorInvoice, invoiceRows, 50);
@@ -915,7 +1049,7 @@ const seed = async () => {
         city: pick(CITIES, i).city,
         ref: `EVT-${i + 1}`,
       }),
-      vendorId: i % 2 === 0 ? vendors[i % vendors.length].id : null,
+      vendorId: i % 2 === 0 ? vendorDev.id : null,
       createdAt: daysAgo(i % 500),
     });
   }
@@ -960,7 +1094,7 @@ const seed = async () => {
       detail: `Automated risk engine flagged entity in ${pick(CITIES, i).city}. Score recalculated after behavioural signals.`,
       fraudType: pick(FRAUD_TYPES, i),
       entityType: i % 2 === 0 ? 'vendor' : 'customer',
-      entityId: i % 2 === 0 ? vendors[i % vendors.length].id : customers[i % customers.length].id,
+      entityId: i % 2 === 0 ? vendorDev.id : customers[i % customers.length].id,
       riskScore: 20 + (hashish(i) % 75),
       actionTaken: i % 3 === 0 ? 'Monitoring' : i % 3 === 1 ? 'Under review' : 'Resolved with note',
       resolved: i % 4 === 0,
@@ -1005,7 +1139,7 @@ const seed = async () => {
   console.log('\n✅ Production seed complete in', elapsed, 's');
   console.log('Demo logins:');
   console.log('  Super Admin: admin@rentelio.com / admin123');
-  console.log('  Vendor:      vendor@rentelio.com / vendor123');
+  console.log('  Vendor:      vendor@rentelio.com / vendor123  (Dev)');
   console.log('  Customer:    customer@rentelio.com / customer123');
   console.log('\nFixing product catalog + images…');
   const { spawnSync } = require('child_process');

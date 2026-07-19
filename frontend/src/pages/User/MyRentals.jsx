@@ -1,19 +1,24 @@
-import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useMemo } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import OrderCard from '../../components/OrderCard';
 import { StatusBadge } from '../../components/Table';
 import { formatDate, formatINR, userApi } from '../../services/api';
 import { POLL_MS, qk } from '../../lib/query';
 
-export default function MyRentals() {  const [tab, setTab] = useState('all');
+const TABS = [
+  { key: 'all', label: 'All' },
+  { key: 'Active', label: 'Current' },
+  { key: 'Requested', label: 'Pending' },
+  { key: 'Completed', label: 'Past' },
+];
 
-  const tabs = [
-    { key: 'all', label: 'All' },
-    { key: 'Active', label: 'Current' },
-    { key: 'Requested', label: 'Pending' },
-    { key: 'Completed', label: 'Past' },
-  ];
+const CURRENT = new Set(['Active', 'Return Pending', 'Approved', 'Overdue']);
+const PAST = new Set(['Completed', 'Cancelled']);
+
+export default function MyRentals() {
+  const [params, setParams] = useSearchParams();
+  const tab = TABS.some((t) => t.key === params.get('tab')) ? params.get('tab') : 'all';
 
   const { data: rentals = [], isLoading, error } = useQuery({
     queryKey: qk.userRentals,
@@ -23,21 +28,28 @@ export default function MyRentals() {  const [tab, setTab] = useState('all');
 
   const filtered = useMemo(() => {
     if (tab === 'all') return rentals;
-    if (tab === 'Active') {
-      return rentals.filter((r) => r.status === 'Active' || r.status === 'Return Pending');
-    }
+    if (tab === 'Active') return rentals.filter((r) => CURRENT.has(r.status));
+    if (tab === 'Requested') return rentals.filter((r) => r.status === 'Requested');
+    if (tab === 'Completed') return rentals.filter((r) => PAST.has(r.status));
     return rentals.filter((r) => r.status === tab);
   }, [rentals, tab]);
+
+  const setTab = (key) => {
+    const next = new URLSearchParams(params);
+    if (key === 'all') next.delete('tab');
+    else next.set('tab', key);
+    setParams(next, { replace: true });
+  };
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="font-display text-2xl font-semibold">{'Your Orders'}</h1>
-        <p className="text-sm text-ink-500">{'Synced with admin rental management'}</p>
+        <p className="text-sm text-ink-500">{'Live rentals from the API — refresh stays on the same tab'}</p>
       </div>
 
       <div className="flex flex-wrap gap-2">
-        {tabs.map((item) => (
+        {TABS.map((item) => (
           <button
             key={item.key}
             type="button"

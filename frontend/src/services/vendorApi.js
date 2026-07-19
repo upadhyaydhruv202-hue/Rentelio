@@ -78,8 +78,6 @@ export const vendorApi = {
       method: 'POST',
       body: JSON.stringify({ stage }),
     }),
-  scan: (code) =>
-    request('/pickup-return/scan', { method: 'POST', body: JSON.stringify({ code }) }),
 
   getMoneySummary: () => request('/money/summary'),
   getDeposits: () => request('/money/deposits'),
@@ -108,5 +106,6 @@ export const vendorApi = {
 
   getReports: () => request('/reports'),
   getNotifications: () => request('/notifications'),
+  getUnreadNotificationCount: () => request('/notifications/unread-count'),
   markNotificationRead: (id) => request(`/notifications/${id}/read`, { method: 'PUT' }),
 };

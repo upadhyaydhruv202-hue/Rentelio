@@ -1,13 +1,12 @@
 import { NavLink } from 'react-router-dom';
 import RentelioLogo from './RentelioLogo';
 
-export default function Sidebar({ open, onClose }) {
+export default function Sidebar({ open, onClose }) {
   const sections = [
     {
       label: 'Control',
       links: [
         { to: '/admin/dashboard', label: 'Overview', end: true },
-        { to: '/admin/fraud', label: 'Fraud Center' },
         { to: '/admin/platform', label: 'System Health' },
       ],
     },

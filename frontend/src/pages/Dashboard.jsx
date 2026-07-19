@@ -42,7 +42,6 @@ export default function Dashboard() {
       { title: 'Total Revenue', value: formatINR(c.totalRevenue), accent: 'brand' },
       { title: 'Platform Commission', value: formatINR(c.platformCommission), accent: 'violet' },
       { title: 'Pending Payouts', value: formatINR(c.pendingPayouts), accent: 'amber' },
-      { title: 'Fraud Cases Open', value: c.fraudCases, accent: 'rose' },
       { title: 'Blacklisted Accounts', value: c.blacklisted, accent: 'rose' },
       {
         title: 'Settlements Pending',
@@ -73,28 +72,20 @@ export default function Dashboard() {
     <div className="space-y-6">
       <PageHeader
         title="Super Admin Control Center"
-        subtitle="Platform-wide visibility · finance · fraud · growth"
+        subtitle="Platform-wide visibility · finance · growth"
         actions={
-          <>
-            <Link
-              to="/admin/fraud"
-              className="btn-living rounded-xl bg-rose-600 px-3 py-2 text-sm font-medium text-white"
-            >
-              Fraud Center
-            </Link>
-            <Link
-              to="/admin/payouts"
-              className="btn-living rounded-xl bg-brand-600 px-3 py-2 text-sm font-medium text-white"
-            >
-              Payouts
-            </Link>
-          </>
+          <Link
+            to="/admin/payouts"
+            className="btn-living rounded-xl bg-brand-600 px-3 py-2 text-sm font-medium text-white"
+          >
+            Payouts
+          </Link>
         }
       />
 
       <AiPulseBar
         title={`Good ${new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 18 ? 'afternoon' : 'evening'}. Your rental ecosystem is online.`}
-        body={`${data.cards.activeRentals} active rentals · ${formatINR(data.cards.totalRevenue)} GMV · ${data.cards.fraudCases} open fraud signals.`}
+        body={`${data.cards.activeRentals} active rentals · ${formatINR(data.cards.totalRevenue)} GMV · ${data.cards.verifiedVendors} verified vendors.`}
       />
 
       <StatGrid items={cards} columns="sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" />

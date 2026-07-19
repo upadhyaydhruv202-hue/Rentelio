@@ -12,6 +12,7 @@ const { logActivity } = require('../services/activity');
 const { productScope, rentalScope, assertOwnProduct, assertOwnRental } = require('../services/vendorScope');
 const { sanitizeVendor } = require('../middleware/vendorAuth');
 const { calculateLateFee } = require('../services/rentalLifecycle');
+const { notifyVendor, notifyCustomer } = require('../services/realtime');
 
 const PROFIT_MARGIN = 0.35;
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -314,6 +315,7 @@ const parseProductBody = (body, file, vendorId) => ({
   category: body.category,
   quantity: body.quantity != null ? Number(body.quantity) : 1,
   pricePerDay: Number(body.pricePerDay),
+  pricePerHour: body.pricePerHour != null && body.pricePerHour !== '' ? Number(body.pricePerHour) : undefined,
   status: body.status || 'Available',
   description: body.description || '',
   brand: body.brand || '',
@@ -339,13 +341,12 @@ const createProduct = async (req, res) => {
     }
     const product = await Product.create(data);
     await logActivity('product', `Product added: ${product.name}`, { id: product.id }, req.vendor.id);
-    await prisma.vendorNotification.create({
-      data: {
-        vendorId: req.vendor.id,
-        title: 'Product Added',
-        body: `${product.name} was added to your inventory.`,
-        type: 'inventory',
-      },
+    await notifyVendor({
+      vendorId: req.vendor.id,
+      title: 'Product Added',
+      body: `${product.name} was added to your inventory.`,
+      type: 'inventory',
+      link: '/vendor/inventory',
     });
     res.status(201).json(product);
   } catch (error) {
@@ -557,14 +558,22 @@ const verifyPickupOtp = async (req, res) => {
       include: rentalInclude,
     });
     await logActivity('pickup', `Product picked up — rental #${rental.id}`, { rentalId: rental.id }, req.vendor.id);
-    await prisma.vendorNotification.create({
-      data: {
-        vendorId: req.vendor.id,
-        title: 'Pickup Confirmed',
-        body: `Rental #${rental.id} pickup verified via OTP.`,
-        type: 'pickup',
-      },
+    await notifyVendor({
+      vendorId: req.vendor.id,
+      title: 'Pickup Confirmed',
+      body: `Rental #${rental.id} pickup verified via OTP.`,
+      type: 'pickup',
+      link: `/vendor/pickup-return?focus=${rental.id}`,
     });
+    if (rental.customerId) {
+      await notifyCustomer({
+        customerId: rental.customerId,
+        title: 'Pickup confirmed',
+        body: `Your rental #${rental.id} was picked up successfully.`,
+        type: 'pickup',
+        link: `/user/rentals/${rental.id}`,
+      });
+    }
     res.json(serializeRental(updated));
   } catch (error) {
     res.status(500).json({ message: 'Failed to verify pickup OTP' });
@@ -612,6 +621,22 @@ const verifyReturnOtp = async (req, res) => {
       },
     });
     await logActivity('return', `Product returned — rental #${rental.id}`, { rentalId: rental.id }, req.vendor.id);
+    await notifyVendor({
+      vendorId: req.vendor.id,
+      title: 'Return received',
+      body: `Rental #${rental.id} return verified.`,
+      type: 'pickup',
+      link: `/vendor/pickup-return?focus=${rental.id}`,
+    });
+    if (rental.customerId) {
+      await notifyCustomer({
+        customerId: rental.customerId,
+        title: 'Return confirmed',
+        body: `Your rental #${rental.id} was returned successfully.`,
+        type: 'rental',
+        link: `/user/rentals/${rental.id}`,
+      });
+    }
     res.json(serializeRental(updated));
   } catch (error) {
     console.error('Vendor verify return error:', error);
@@ -644,17 +669,17 @@ const advanceTracker = async (req, res) => {
 
 const scanDemo = async (req, res) => {
   try {
-    const code = String(req.body?.code || '').trim();
-    const rentalId = Number(code.replace(/\D/g, '')) || Number(req.body?.rentalId);
+    const raw = String(req.body?.code || '').trim().toUpperCase();
+    const rentalId = Number(raw.replace(/\D/g, '')) || Number(req.body?.rentalId);
     const rental = await assertOwnRental(req.vendor.id, rentalId);
-    if (!rental) return res.status(404).json({ message: 'No rental matched scan code' });
+    if (!rental) return res.status(404).json({ message: 'No rental matched code' });
     res.json({
-      message: 'Scan matched (demo)',
+      message: `Matched rental #${rental.id}`,
       rental: serializeRental(rental),
-      checklist: ['Identity verified', 'Accessories listed', 'Condition noted', 'OTP required'],
     });
   } catch (error) {
-    res.status(500).json({ message: 'Scan failed' });
+    console.error('Scan error:', error);
+    res.status(500).json({ message: 'Lookup failed' });
   }
 };
 
@@ -792,13 +817,12 @@ const approveRefund = async (req, res) => {
     });
 
     await logActivity('deposit', `Deposit refunded #${deposit.id}`, { id: deposit.id }, req.vendor.id);
-    await prisma.vendorNotification.create({
-      data: {
-        vendorId: req.vendor.id,
-        title: 'Deposit Refunded',
-        body: `Deposit #${deposit.id} refunded ${refunded} (penalties ${penalties}).`,
-        type: 'deposit',
-      },
+    await notifyVendor({
+      vendorId: req.vendor.id,
+      title: 'Deposit Refunded',
+      body: `Deposit #${deposit.id} refunded ${refunded} (penalties ${penalties}).`,
+      type: 'deposit',
+      link: '/vendor/money',
     });
     res.json(serializeDeposit(updated));
   } catch (error) {
@@ -1125,9 +1149,32 @@ const listNotifications = async (req, res) => {
       orderBy: { id: 'desc' },
       take: 50,
     });
-    res.json(rows);
+    const TYPE_LINKS = {
+      inventory: '/vendor/inventory',
+      pickup: '/vendor/pickup-return',
+      order: '/vendor/orders',
+      deposit: '/vendor/money',
+      info: '/vendor/notifications',
+    };
+    res.json(
+      rows.map((n) => ({
+        ...n,
+        link: n.link || TYPE_LINKS[n.type] || '/vendor/notifications',
+      }))
+    );
   } catch (error) {
     res.status(500).json({ message: 'Failed to list notifications' });
+  }
+};
+
+const unreadVendorCount = async (req, res) => {
+  try {
+    const count = await prisma.vendorNotification.count({
+      where: { vendorId: req.vendor.id, read: false },
+    });
+    res.json({ count });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to count notifications' });
   }
 };
 
@@ -1237,6 +1284,7 @@ module.exports = {
   deleteDiscount,
   getReports,
   listNotifications,
+  unreadVendorCount,
   markNotificationRead,
   getProfile,
   updateProfile,

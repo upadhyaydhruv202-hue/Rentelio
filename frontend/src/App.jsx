@@ -13,7 +13,6 @@ import Platform from './pages/Platform';
 import NotificationsAdmin from './pages/NotificationsAdmin';
 import Settings from './pages/Settings';
 import Payouts from './pages/Payouts';
-import FraudCenter from './pages/FraudCenter';
 import UserLogin from './pages/User/UserLogin';
 import UserRegister from './pages/User/UserRegister';
 import UserDashboard from './pages/User/UserDashboard';
@@ -42,7 +41,13 @@ import VendorReports from './pages/Vendor/VendorReports';
 import VendorNotifications from './pages/Vendor/VendorNotifications';
 import VendorProfile from './pages/Vendor/VendorProfile';
 import Landing from './pages/Landing';
-import { clearOtherSessions, DASHBOARDS, ROLES } from './lib/authRoles';
+import {
+  clearPortalSession,
+  DASHBOARDS,
+  readJsonStorage,
+  ROLES,
+  STORAGE_KEYS,
+} from './lib/authRoles';
 
 function homePath({ admin, vendor, customer }) {
   if (admin?.role === ROLES.SUPER_ADMIN) return DASHBOARDS[ROLES.SUPER_ADMIN];
@@ -52,28 +57,10 @@ function homePath({ admin, vendor, customer }) {
 }
 
 function App() {
-  const [admin, setAdmin] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem('rentelio_user')) || null;
-    } catch {
-      return null;
-    }
-  });
-  const [customer, setCustomer] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem('rentelio_customer')) || null;
-    } catch {
-      return null;
-    }
-  });
-  const [vendor, setVendor] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem('rentelio_vendor')) || null;
-    } catch {
-      return null;
-    }
-  });
-  const [darkMode, setDarkMode] = useState(() => localStorage.getItem('rentelio_theme') === 'dark');
+  const [admin, setAdmin] = useState(() => readJsonStorage(STORAGE_KEYS.adminUser));
+  const [customer, setCustomer] = useState(() => readJsonStorage(STORAGE_KEYS.customer));
+  const [vendor, setVendor] = useState(() => readJsonStorage(STORAGE_KEYS.vendor));
+  const [darkMode, setDarkMode] = useState(() => localStorage.getItem(STORAGE_KEYS.theme) === 'dark');
   // Always play splash on load, refresh, and every login
   const [showSplash, setShowSplash] = useState(true);
   const [splashKey, setSplashKey] = useState(0);
@@ -85,76 +72,93 @@ function App() {
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', darkMode);
-    localStorage.setItem('rentelio_theme', darkMode ? 'dark' : 'light');
+    localStorage.setItem(STORAGE_KEYS.theme, darkMode ? 'dark' : 'light');
   }, [darkMode]);
+
+  // Keep auth + theme in sync when User / Vendor / Admin run in other browser tabs
+  useEffect(() => {
+    const syncFromStorage = (event) => {
+      if (!event.key) {
+        setAdmin(readJsonStorage(STORAGE_KEYS.adminUser));
+        setCustomer(readJsonStorage(STORAGE_KEYS.customer));
+        setVendor(readJsonStorage(STORAGE_KEYS.vendor));
+        setDarkMode(localStorage.getItem(STORAGE_KEYS.theme) === 'dark');
+        return;
+      }
+
+      if (event.key === STORAGE_KEYS.adminUser || event.key === STORAGE_KEYS.adminToken) {
+        setAdmin(readJsonStorage(STORAGE_KEYS.adminUser));
+      }
+      if (event.key === STORAGE_KEYS.customer || event.key === STORAGE_KEYS.customerToken) {
+        setCustomer(readJsonStorage(STORAGE_KEYS.customer));
+      }
+      if (event.key === STORAGE_KEYS.vendor || event.key === STORAGE_KEYS.vendorToken) {
+        setVendor(readJsonStorage(STORAGE_KEYS.vendor));
+      }
+      if (event.key === STORAGE_KEYS.theme) {
+        setDarkMode(event.newValue === 'dark');
+      }
+    };
+
+    window.addEventListener('storage', syncFromStorage);
+    return () => window.removeEventListener('storage', syncFromStorage);
+  }, []);
 
   const handleSplashComplete = useCallback(() => {
     setShowSplash(false);
   }, []);
 
   const handleAdminLogin = (userData, token) => {
-    clearOtherSessions('admin');
-    setCustomer(null);
-    setVendor(null);
     setAdmin(userData);
-    localStorage.setItem('rentelio_user', JSON.stringify(userData));
-    localStorage.setItem('rentelio_token', token);
+    localStorage.setItem(STORAGE_KEYS.adminUser, JSON.stringify(userData));
+    localStorage.setItem(STORAGE_KEYS.adminToken, token);
     replaySplash();
   };
 
   const handleAdminLogout = () => {
     setAdmin(null);
-    localStorage.removeItem('rentelio_user');
-    localStorage.removeItem('rentelio_token');
+    clearPortalSession('admin');
     replaySplash();
   };
 
   const handleCustomerLogin = (customerData, token) => {
-    clearOtherSessions('user');
-    setAdmin(null);
-    setVendor(null);
     const withRole = { ...customerData, role: ROLES.USER, roleLabel: 'User' };
     setCustomer(withRole);
-    localStorage.setItem('rentelio_customer', JSON.stringify(withRole));
-    localStorage.setItem('rentelio_customer_token', token);
+    localStorage.setItem(STORAGE_KEYS.customer, JSON.stringify(withRole));
+    localStorage.setItem(STORAGE_KEYS.customerToken, token);
     replaySplash();
   };
 
   const handleCustomerLogout = () => {
     setCustomer(null);
-    localStorage.removeItem('rentelio_customer');
-    localStorage.removeItem('rentelio_customer_token');
+    clearPortalSession('user');
     replaySplash();
   };
 
   const handleCustomerUpdate = (updated) => {
     const withRole = { ...updated, role: ROLES.USER, roleLabel: 'User' };
     setCustomer(withRole);
-    localStorage.setItem('rentelio_customer', JSON.stringify(withRole));
+    localStorage.setItem(STORAGE_KEYS.customer, JSON.stringify(withRole));
   };
 
   const handleVendorLogin = (vendorData, token) => {
-    clearOtherSessions('vendor');
-    setAdmin(null);
-    setCustomer(null);
     const withRole = { ...vendorData, role: ROLES.VENDOR, roleLabel: 'Vendor' };
     setVendor(withRole);
-    localStorage.setItem('rentelio_vendor', JSON.stringify(withRole));
-    localStorage.setItem('rentelio_vendor_token', token);
+    localStorage.setItem(STORAGE_KEYS.vendor, JSON.stringify(withRole));
+    localStorage.setItem(STORAGE_KEYS.vendorToken, token);
     replaySplash();
   };
 
   const handleVendorLogout = () => {
     setVendor(null);
-    localStorage.removeItem('rentelio_vendor');
-    localStorage.removeItem('rentelio_vendor_token');
+    clearPortalSession('vendor');
     replaySplash();
   };
 
   const handleVendorUpdate = (updated) => {
     const withRole = { ...updated, role: ROLES.VENDOR, roleLabel: 'Vendor' };
     setVendor(withRole);
-    localStorage.setItem('rentelio_vendor', JSON.stringify(withRole));
+    localStorage.setItem(STORAGE_KEYS.vendor, JSON.stringify(withRole));
   };
 
   const toggleTheme = () => setDarkMode((v) => !v);
@@ -164,16 +168,7 @@ function App() {
       {showSplash && <SplashScreen key={splashKey} onComplete={handleSplashComplete} />}
 
       <Routes>
-        <Route
-          path="/"
-          element={
-            admin?.role === ROLES.SUPER_ADMIN || vendor || customer ? (
-              <Navigate to={homePath({ admin, vendor, customer })} replace />
-            ) : (
-              <Landing />
-            )
-          }
-        />
+        <Route path="/" element={<Landing admin={admin} vendor={vendor} customer={customer} />} />
         {/* Super Admin */}
         <Route
           path="/admin/login"
@@ -206,7 +201,7 @@ function App() {
           <Route path="/admin/vendors" element={<Vendors />} />
           <Route path="/admin/users" element={<UsersAdmin />} />
           <Route path="/admin/payouts" element={<Payouts />} />
-          <Route path="/admin/fraud" element={<FraudCenter />} />
+          <Route path="/admin/fraud" element={<Navigate to="/admin/dashboard" replace />} />
           <Route path="/admin/reports" element={<Reports />} />
           <Route path="/admin/platform" element={<Platform />} />
           <Route path="/admin/notifications" element={<NotificationsAdmin />} />
@@ -314,7 +309,7 @@ function App() {
         <Route path="/vendors" element={<Navigate to="/admin/vendors" replace />} />
         <Route path="/users" element={<Navigate to="/admin/users" replace />} />
         <Route path="/payouts" element={<Navigate to="/admin/payouts" replace />} />
-        <Route path="/fraud" element={<Navigate to="/admin/fraud" replace />} />
+        <Route path="/fraud" element={<Navigate to="/admin/dashboard" replace />} />
         <Route path="/reports" element={<Navigate to="/admin/reports" replace />} />
         <Route path="/platform" element={<Navigate to="/admin/platform" replace />} />
         <Route path="/notifications" element={<Navigate to="/admin/notifications" replace />} />

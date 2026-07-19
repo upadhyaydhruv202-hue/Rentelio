@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import RentelioLogo from '../components/RentelioLogo';
+import { ROLES } from '../lib/authRoles';
 
 function RevealSection({ children, className = '' }) {
   const ref = useRef(null);
@@ -26,7 +27,7 @@ function RevealSection({ children, className = '' }) {
   );
 }
 
-export default function Landing() {
+export default function Landing({ admin, vendor, customer }) {
   const [phase, setPhase] = useState(0);
 
   const floaters = [
@@ -38,9 +39,24 @@ export default function Landing() {
   ];
 
   const portals = [
-    { title: 'Users', body: 'Browse, book, wallet, and track rentals in a fluid storefront.', to: '/user/login' },
-    { title: 'Vendors', body: 'Inventory, pickup OTP, settlements, and performance in Seller Central.', to: '/vendor/login' },
-    { title: 'Super Admin', body: 'KYC, fraud, payouts, health, and command-center analytics.', to: '/admin/login' },
+    {
+      title: 'Users',
+      body: 'Browse, book, wallet, and track rentals in a fluid storefront.',
+      to: customer ? '/user/dashboard' : '/user/login',
+      ready: Boolean(customer),
+    },
+    {
+      title: 'Vendors',
+      body: 'Inventory, pickup OTP, settlements, and performance in Seller Central.',
+      to: vendor ? '/vendor/dashboard' : '/vendor/login',
+      ready: Boolean(vendor),
+    },
+    {
+      title: 'Super Admin',
+      body: 'KYC, payouts, health, and command-center analytics.',
+      to: admin?.role === ROLES.SUPER_ADMIN ? '/admin/dashboard' : '/admin/login',
+      ready: admin?.role === ROLES.SUPER_ADMIN,
+    },
   ];
 
   useEffect(() => {
@@ -66,22 +82,22 @@ export default function Landing() {
         <RentelioLogo size="md" spin colorClass="text-white" showTagline={false} />
         <div className="flex flex-wrap items-center justify-end gap-2">
           <Link
-            to="/user/login"
+            to={customer ? '/user/dashboard' : '/user/login'}
             className="btn-living rounded-xl border border-white/20 px-3 py-2 text-sm text-white/90"
           >
-            User
+            {customer ? 'User dashboard' : 'User'}
           </Link>
           <Link
-            to="/vendor/login"
+            to={vendor ? '/vendor/dashboard' : '/vendor/login'}
             className="btn-living rounded-xl border border-white/20 px-3 py-2 text-sm text-white/90"
           >
-            {'Vendor'}
+            {vendor ? 'Vendor dashboard' : 'Vendor'}
           </Link>
           <Link
-            to="/admin/login"
+            to={admin?.role === ROLES.SUPER_ADMIN ? '/admin/dashboard' : '/admin/login'}
             className="btn-living rounded-xl bg-brand-500 px-3 py-2 text-sm font-semibold text-ink-950"
           >
-            {'Super Admin'}
+            {admin?.role === ROLES.SUPER_ADMIN ? 'Admin OS' : 'Super Admin'}
           </Link>
         </div>
       </header>
@@ -162,15 +178,29 @@ export default function Landing() {
           <div className="mt-10 grid gap-4 text-left md:grid-cols-3">
             {portals.map((card) => (
               <Link
-                key={card.to}
+                key={card.to + card.title}
                 to={card.to}
                 className="block rounded-2xl border border-white/15 bg-white/5 p-6 text-white backdrop-blur-md transition hover:bg-white/10"
               >
-                <h3 className="font-display text-xl font-semibold text-white">{card.title}</h3>
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="font-display text-xl font-semibold text-white">{card.title}</h3>
+                  {card.ready && (
+                    <span className="rounded-full bg-brand-500/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-brand-200">
+                      Signed in
+                    </span>
+                  )}
+                </div>
                 <p className="mt-2 text-sm text-white/70">{card.body}</p>
+                <p className="mt-4 text-xs font-medium text-brand-300">
+                  {card.ready ? 'Open in this tab →' : 'Sign in →'}
+                </p>
               </Link>
             ))}
           </div>
+          <p className="mx-auto mt-6 max-w-xl text-sm text-white/45">
+            Tip: sign into User, Vendor, and Super Admin separately — each portal keeps its own
+            session so you can run them in different browser tabs at once.
+          </p>
         </RevealSection>
 
         <RevealSection>
@@ -181,7 +211,7 @@ export default function Landing() {
             {'Designed to feel assisted — without changing how Rentelio works.'}
           </h2>
           <ul className="mx-auto mt-8 grid max-w-4xl gap-3 text-left text-sm text-white/70 md:grid-cols-2">
-            {['AI-style verification theater around existing KYC decisions', 'Living charts and holographic KPI panels', 'Fraud center with cybersecurity pulse aesthetics', 'System health with heartbeat and capacity visualizations'].map((item) => (
+            {['AI-style verification theater around existing KYC decisions', 'Living charts and holographic KPI panels', 'Vendor KYC and payout command tools', 'System health with heartbeat and capacity visualizations'].map((item) => (
               <li
                 key={item}
                 className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white/80 backdrop-blur-sm"
